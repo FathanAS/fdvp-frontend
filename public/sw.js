@@ -1,6 +1,16 @@
+self.addEventListener('install', (event) => {
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(clients.claim());
+});
+
 self.addEventListener('push', function (event) {
-    // Event ini ditrigger jika backend mengirim Push API (WebPush), tapi kita pakai WebSocket.
-    // Code ini placeholder agar browser mengenali file ini sebagai Valid Service Worker.
+    if (event.data) {
+        const data = event.data.json();
+        // Fallback for real push if implemented later
+    }
 });
 
 self.addEventListener('notificationclick', function (event) {

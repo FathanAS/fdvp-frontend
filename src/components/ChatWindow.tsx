@@ -91,14 +91,18 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
   }, [otherUser.id]);
 
   useEffect(() => {
-    // FETCH HISTORY
+    // FETCH HISTORY FUNCTION
     const fetchHistory = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API}/chat/history/${roomId}?userId=${myId}`);
-        if (res.ok) {
-          const data: Message[] = await res.json();
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API}/chat/history/${roomId}?userId=${myId}`);
+        if (response.ok) {
+          const data: Message[] = await response.json();
+          // Safety Check: Jangan kosongkan message jika fetch gagal/kosong tapi kita punya data sebelumnya? 
+          // (Tergantung usecase, tapi biasanya fetch history adalah source of truth).
+          // Namun jika network error (catch block), jangan setMessages([]).
           setMessages(data);
 
+          // Mark as Read Logic
           const unreadIds = data
             .filter((m) => m.senderId !== myId && !m.isRead)
             .map((m) => m.id);
@@ -111,8 +115,13 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
             });
           }
         }
-      } catch (err) { console.error(err); }
-      finally { setLoading(false); }
+      } catch (err) {
+        console.error("Failed to fetch history:", err);
+        // Jangan setMessages([]) di sini agar chat lama (jika ada di state) tidak hilang saat offline
+      } finally {
+        setLoading(false);
+        scrollToBottom();
+      }
     };
 
     const socket = io(process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3001", {
@@ -122,11 +131,12 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
     socketRef.current = socket;
 
     socket.emit("joinRoom", { roomId });
-    fetchHistory();
+    fetchHistory(); // Initial fetch
 
     socket.on("receiveMessage", (newMsg: Message) => {
       setIsTyping(false);
       setMessages((prev) => {
+        // Prevent duplicate append
         if (prev.some((msg) => msg.id === newMsg.id)) return prev;
         return [...prev, newMsg];
       });
@@ -144,7 +154,7 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
     socket.on("displayTyping", (data: { userId: string; isTyping: boolean }) => {
       if (data.userId !== myId) {
         setIsTyping(data.isTyping);
-        scrollToBottom();
+        if (data.isTyping) scrollToBottom();
       }
     });
 
@@ -179,9 +189,10 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         console.log("Chat Window visible: fetching latest messages...");
-        fetchHistory();
-        // Cek koneksi socket
-        if (socket.connected === false) {
+        fetchHistory(); // Safe fetch
+
+        // Ensure socket is connected
+        if (!socket.connected) {
           socket.connect();
           socket.emit("joinRoom", { roomId });
         }

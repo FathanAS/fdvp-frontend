@@ -120,8 +120,23 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         // REGISTER SERVICE WORKER (Wajib untuk notifikasi Android/HyperOS saat background)
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')
-                .then(reg => console.log('Service Worker registered:', reg))
+                .then(reg => {
+                    console.log('Service Worker registered:', reg);
+                    // Ensure active immediatley
+                    if (reg.installing) {
+                        console.log('Service worker installing');
+                    } else if (reg.waiting) {
+                        console.log('Service worker installed');
+                    } else if (reg.active) {
+                        console.log('Service worker active');
+                    }
+                })
                 .catch(err => console.log('Service Worker registration failed:', err));
+
+            // Re-request permission if default
+            if (Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
         }
 
         // INIT SOCKET GLOBAL
