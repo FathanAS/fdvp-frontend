@@ -157,9 +157,13 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                 // 1. Request Permission
                 const permission = await Notification.requestPermission();
                 if (permission === 'granted') {
-                    // 2. Get Token (HARDCODED KEY 2)
-                    const vapidKey = "BJwBRKoq_Pl1LL9xjTaCbA2DWblHJuOAIPfRNOdx3SmPTH1ulV3-uYGW_uBeu-Wj9WrHvfEOAK1QVIWgcHm7IBw";
-                    console.log("Using VAPID Key:", vapidKey);
+                    // 2. Get Token
+                    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "BJwBRKoq_Pl1LL9xjTaCbA2DWblHJuOAIPfRNOdx3SmPTH1ulV3-uYGW_uBeu-Wj9WrHvfEOAK1QVIWgcHm7IBw";
+
+                    if (!vapidKey) {
+                        console.error("VAPID Key missing.");
+                        return;
+                    }
 
                     const currentToken = await getToken(messaging, {
                         vapidKey: vapidKey,
