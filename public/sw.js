@@ -16,6 +16,9 @@ self.addEventListener('push', function (event) {
 self.addEventListener('notificationclick', function (event) {
     event.notification.close();
 
+    // Handle Action Click (e.g. "Reply" or "Open")
+    // For now, all actions lead to opening the chat
+
     // Ambil URL target dari data notifikasi (jika ada), default ke /chat
     const targetUrl = event.notification.data?.url || '/chat';
 
@@ -25,8 +28,8 @@ self.addEventListener('notificationclick', function (event) {
             // Cek apakah ada tab yang sudah terbuka di URL yang sama
             for (let i = 0; i < clientList.length; i++) {
                 const client = clientList[i];
-                // Cek URL (sederhana)
-                if (client.url.includes(targetUrl) && 'focus' in client) {
+                // Cek URL (sederhana) - jika chat sudah terbuka, fokuskan
+                if (client.url.includes('chat') && 'focus' in client) {
                     return client.focus();
                 }
             }

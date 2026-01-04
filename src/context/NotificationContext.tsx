@@ -148,9 +148,22 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         });
         socketRef.current = socket;
 
+        // Helper for simple notification if SW fails
+        const fallbackNotification = (data: any) => {
+            if (Notification.permission === "granted") {
+                new Notification(`New Message from ${data.senderName}`, {
+                    body: data.text,
+                    icon: data.senderPhoto || '/icon-192.png',
+                    requireInteraction: true
+                });
+            }
+        };
+
         // LISTENER NOTIFIKASI
-        socket.on("receiveNotification", async (data: { senderName: string, text: string, senderPhoto?: string, roomId: string }) => {
+        socket.on("receiveNotification", async (data: { senderName: string, text: string, senderPhoto?: string, roomId: string, senderId?: string }) => {
             console.log("🔔 CLIENT RECEIVED NOTIF:", data);
+
+            // ... (rest of code) ...
 
             // DEDUPLICATION CHECK (Anti-Spam / Anti-Double)
             const notifKey = `${data.roomId}-${data.text}`;
@@ -196,24 +209,41 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
             // KONDISI 2: User sedang di tab lain atau Web di minimize (Background/Hidden)
             else {
                 // Gunakan Service Worker Registration untuk menampilkan notifikasi System (Lebih kuat tembus OS Android)
-                if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
-                    const registration = await navigator.serviceWorker.ready;
-                    registration.showNotification(`Message from ${data.senderName}`, {
-                        body: data.text,
-                        icon: data.senderPhoto || '/favicon.ico',
-                        tag: data.roomId, // Mencegah spam notif yang sama menumpuk
-                        data: { url: `/chat` } // Data untuk dihandle saat diklik di sw.js
+                if (Notification.permission === 'granted' && 'serviceWorker' in navigator && navigator.serviceWorker.ready) {
+                    navigator.serviceWorker.ready.then(reg => {
+                        try {
+                            reg.showNotification(`New Message from ${data.senderName}`, {
+                                body: data.text,
+                                icon: data.senderPhoto || '/icon-192.png',
+                                badge: '/icon-192.png',
+                                tag: 'chat-message', // Groups notifications
+                                // @ts-ignore
+                                renotify: true,
+                                requireInteraction: true, // Keep until user interacts ("Tidak kaku/Tetap tampilkan")
+                                vibrate: [200, 100, 200],
+                                data: {
+                                    url: '/chat',
+                                    roomId: data.roomId,
+                                    senderId: data.senderId
+                                },
+                                // @ts-ignore
+                                actions: [
+                                    { action: 'open_chat', title: 'Open Chat' }
+                                ]
+                            });
+                        } catch (e) {
+                            console.error("Error showing SW notification", e);
+                            fallbackNotification(data);
+                        }
+                    }).catch(e => {
+                        console.error("Service Worker ready promise rejected:", e);
+                        fallbackNotification(data);
                     });
-                } else if ("Notification" in window && Notification.permission === "granted") {
-                    // Fallback jika SW belum ready (biasanya Desktop legacy)
-                    new Notification(`Message from ${data.senderName}`, {
-                        body: data.text,
-                        icon: data.senderPhoto || '/favicon.ico',
-                        tag: data.roomId,
-                    });
+                } else {
+                    fallbackNotification(data);
                 }
 
-                // Play Sound juga di background jika browser mengizinkan
+                // Play Sound also in background if browser allows
                 if (audioRef.current) audioRef.current.play().catch(() => { });
             }
         });

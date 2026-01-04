@@ -46,9 +46,18 @@ export default function ChatPage() {
                     timestamp: chatData.timestamp,
                     job: "Member",
                     uid: chatData.uid,
-                    isOnline: false, // Default status
-                    lastSeen: null
+                    isOnline: false,
+                    lastSeen: null,
+                    unreadCount: chatData.unreadCount || 0 // Initial mapping
                 };
+
+                // Fetch fresh User Profile & Status 
+                // ... (code continues) ...
+
+
+                // ... later in JSX ...
+                // Fetch fresh User Profile & Status (moved logic back up if needed, but the JSX was just noise here)
+
 
                 // Fetch fresh User Profile & Status
                 try {
@@ -62,6 +71,7 @@ export default function ChatPage() {
                         displayData.isOnline = userData.isOnline || false;
                         displayData.lastSeen = userData.lastSeen || null;
                     }
+                    displayData.unreadCount = chatData.unreadCount || 0; // <--- Map Unread Count
                 } catch (e) {
                     console.warn("Failed to fetch user details", e);
                 }
@@ -192,14 +202,21 @@ export default function ChatPage() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-baseline mb-0.5">
-                                            <h3 className="font-bold truncate text-sm">{contact.displayName || "Unknown"}</h3>
-                                            {contact.timestamp && (
-                                                <span className="text-[10px] text-fdvp-text/50">
-                                                    {new Date(contact.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            )}
+                                            <h3 className={`truncate text-sm ${contact.unreadCount > 0 ? 'font-bold text-white' : 'font-semibold text-fdvp-text-light'}`}>{contact.displayName || "Unknown"}</h3>
+                                            <div className="flex flex-col items-end">
+                                                {contact.timestamp && (
+                                                    <span className={`text-[10px] mb-1 ${contact.unreadCount > 0 ? 'text-fdvp-primary' : 'text-fdvp-text/50'}`}>
+                                                        {new Date(contact.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                )}
+                                                {contact.unreadCount > 0 && (
+                                                    <span className="bg-fdvp-primary text-fdvp-bg text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center shadow-lg shadow-fdvp-primary/20 animate-in zoom-in">
+                                                        {contact.unreadCount}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
-                                        <p className="text-xs text-fdvp-text truncate flex items-center gap-1">
+                                        <p className={`text-xs truncate flex items-center gap-1 ${contact.unreadCount > 0 ? 'text-fdvp-text-light font-medium' : 'text-fdvp-text'}`}>
                                             {/* Show user ID/Job if no message, else show last message */}
                                             {contact.uid === user?.uid && <span className="text-fdvp-primary">You:</span>}
                                             {contact.lastMessage || contact.job || "Member"}
