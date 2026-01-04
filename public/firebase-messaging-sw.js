@@ -1,11 +1,8 @@
 importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
 
-// TODO: USER MUST REPLACE THESE VALUES WITH "src/lib/firebase.ts" VALUES
-// or "Project Settings" > "General" from Firebase Console.
-// Environment variables do not work here in Service Worker directly.
 firebase.initializeApp({
-    apiKey: "AIzaSyAvqTvItXWYsEp7JY_61Ks-djHRiO32O18",
+    apiKey: "AIzaSyDxK3LEBQItUXyU_f0ar30miPhehNs8RNA",
     authDomain: "fdvp-db.firebaseapp.com",
     projectId: "fdvp-db",
     storageBucket: "fdvp-db.firebasestorage.app",
@@ -14,18 +11,78 @@ firebase.initializeApp({
     measurementId: "G-NF8P5HKCCJ"
 });
 
+self.addEventListener('install', (event) => {
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(clients.claim());
+});
+
 const messaging = firebase.messaging();
 
-// Handle background messages
+// 3. BACKGROUND MESSAGE HANDLER (Data-Only Payload)
 messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] Received background message ', payload);
-    const notificationTitle = payload.notification.title;
+
+    const { title, body, icon, click_action } = payload.data || {};
+
+    // Custom Notification Options
+    const notificationTitle = title || 'New Message';
     const notificationOptions = {
-        body: payload.notification.body,
-        icon: payload.notification.icon || '/icon-192.png',
-        badge: '/icon-192.png',
-        data: payload.data
+        body: body || 'You have a new message.',
+        icon: icon || '/icons/icon-192x192.png',
+        badge: '/icons/badge-96x96.png', // Add badge if available
+        tag: 'chat-notification', // Grouping tag
+        renotify: true, // Vibrate/Sound again even if tag exists
+        vibrate: [200, 100, 200], // Explicit vibration
+        timestamp: Date.now(),
+        data: {
+            url: click_action || '/chat'
+        },
+        // Interaction settings
+        requireInteraction: true,
+        actions: [
+            { action: 'open', title: 'Open Chat' }
+        ]
     };
 
-    self.registration.showNotification(notificationTitle, notificationOptions);
+    return self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+// 4. NOTIFICATION CLICK HANDLER (Focus Tab)
+self.addEventListener('notificationclick', function (event) {
+    console.log('[Service Worker] Notification click Received.', event.notification.data);
+
+    event.notification.close();
+
+    // URL to open
+    const urlToOpen = new URL(event.notification.data.url || '/chat', self.location.origin).href;
+
+    const promiseChain = clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true
+    }).then((windowClients) => {
+        // Check if there is already a window/tab open with the target URL
+        for (let i = 0; i < windowClients.length; i++) {
+            const client = windowClients[i];
+            // If URL matches or it's the chat page, focus it
+            if (client.url === urlToOpen && 'focus' in client) {
+                return client.focus();
+            }
+        }
+        // If not, open a new window
+        if (clients.openWindow) {
+            return clients.openWindow(urlToOpen);
+        }
+    });
+
+    event.waitUntil(promiseChain);
+});
+
+// Listener "message" opsional untuk komunikasi Client -> SW
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
 });

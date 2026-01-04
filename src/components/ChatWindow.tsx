@@ -3,6 +3,9 @@ import { useEffect, useState, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { X, Send, Minus, Loader2, Trash2, CheckCheck, Edit2, Check, XCircle, Reply, Copy } from "lucide-react";
 import { useNotification } from "@/context/NotificationContext";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import Notiflix from "notiflix";
 
 interface Message {
   id: string;
@@ -12,8 +15,9 @@ interface Message {
   text: string;
   createdAt: string;
   isRead?: boolean;
-  replyTo?: string | null;  // For reply feature
-  replyToText?: string | null; // Preview text
+  replyTo?: string | null;
+  replyToText?: string | null;
+  status?: 'sending' | 'sent' | 'failed';
 }
 
 interface ChatWindowProps {
@@ -25,16 +29,13 @@ interface ChatWindowProps {
   customClass?: string;
 }
 
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import Notiflix from "notiflix";
-
 export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, customClass }: ChatWindowProps) {
   // State
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isMinimized, setIsMinimized] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState(true); // Connection State
 
   // Status
   const [isTyping, setIsTyping] = useState(false);
@@ -129,6 +130,11 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
       query: { userId: myId }
     });
     socketRef.current = socket;
+
+    // Connection Listeners
+    socket.on('connect', () => setIsConnected(true));
+    socket.on('disconnect', () => setIsConnected(false));
+    socket.on('connect_error', () => setIsConnected(false));
 
     socket.emit("joinRoom", { roomId });
     fetchHistory(); // Initial fetch
@@ -454,6 +460,12 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
 
   return (
     <div className={containerClass}>
+      {/* CONNECTION BANNER */}
+      {!isConnected && (
+        <div className="bg-red-500 text-white text-xs text-center py-1 font-bold animate-pulse z-50">
+          Connection lost. Reconnecting...
+        </div>
+      )}
 
       {/* HEADER */}
       <div className="bg-fdvp-text/5 p-4 flex justify-between items-center cursor-pointer border-b border-fdvp-text/5 relative overflow-hidden" onClick={() => !customClass && !selectionMode && setIsMinimized(true)}>
@@ -600,7 +612,15 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
                         <span className="text-[9px] font-mono opacity-80">
                           {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                        {isMe && <CheckCheck size={12} className={msg.isRead ? "text-fdvp-bg" : "text-fdvp-bg/40"} />}
+                        {isMe && (
+                          <div className="flex items-center">
+                            {msg.status === 'sending' ? (
+                              <Loader2 size={10} className="animate-spin text-fdvp-text/50 mr-1" />
+                            ) : (
+                              <CheckCheck size={12} className={msg.isRead ? "text-fdvp-bg" : "text-fdvp-bg/40"} />
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
