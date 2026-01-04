@@ -6,6 +6,7 @@ import { useNotification } from "@/context/NotificationContext";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Notiflix from "notiflix";
+import ChatBubble from "./ChatBubble";
 
 interface Message {
   id: string;
@@ -142,7 +143,8 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
     socket.on("receiveMessage", (newMsg: Message) => {
       setIsTyping(false);
       setMessages((prev) => {
-        // 1. Strict Dedupe by ID
+        // 1. Strict Idempotency Check (The "Double Render" Fix)
+        // If message ID already exists, do not modify state.
         if (prev.some((msg) => msg.id === newMsg.id)) return prev;
 
         // 2. Fuzzy Dedupe for Own Messages (Optimistic vs Server Race Condition)
@@ -409,6 +411,43 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
   };
 
+  // New Action Handlers
+  const handleDeleteForMe = async (msgId: string) => {
+    // Optimistic remove
+    setMessages(prev => prev.filter(m => m.id !== msgId));
+    try {
+      // Assuming DELETE endpoint handles "delete for user"
+      await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API}/chat/messages`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageIds: [msgId], userId: myId })
+      });
+      notify('Success', 'Message deleted for you', 'success');
+    } catch (e) { console.error(e); }
+  };
+
+  const handleDeleteForEveryone = async (msgId: string) => {
+    try {
+      // Update text to "deleted" pattern
+      const deletedText = "🚫 This message was deleted";
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API}/chat/messages/${msgId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: deletedText, userId: myId, isDeleted: true }) // Passing flag if supported
+      });
+
+      if (res.ok) {
+        socketRef.current?.emit("editMessage", { roomId, messageId: msgId, newText: deletedText });
+        // Local update
+        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: deletedText, isDeleted: true } : m));
+        notify('Success', 'Message deleted for everyone', 'success');
+      }
+    } catch (e) {
+      console.error(e);
+      notify('Error', 'Failed to delete message', 'error');
+    }
+  };
+
   const handleDeleteChat = async (e: React.MouseEvent) => {
     e.stopPropagation();
     Notiflix.Confirm.show(
@@ -451,7 +490,7 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
 
   const containerClass = customClass
     ? `bg-fdvp-card/90 backdrop-blur-xl border border-fdvp-text/10 rounded-3xl shadow-2xl flex flex-col z-40 font-sans overflow-hidden ${customClass}`
-    : "fixed bottom-5 right-5 w-80 md:w-96 h-[600px] bg-fdvp-card/90 backdrop-blur-xl border border-fdvp-text/10 rounded-3xl shadow-2xl flex flex-col z-40 font-sans overflow-hidden animate-in slide-in-from-bottom-5";
+    : "fixed bottom-0 right-0 w-full h-[100dvh] md:w-96 md:h-[600px] md:bottom-5 md:right-5 bg-fdvp-card/90 backdrop-blur-xl border border-fdvp-text/10 md:rounded-3xl shadow-2xl flex flex-col z-40 font-sans overflow-hidden animate-in slide-in-from-bottom-5";
 
   // Helpers for Selection Header
   const selectedMsgList = messages.filter(m => selectedMessages.has(m.id));
@@ -552,82 +591,20 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
             </div>
           </div>
         ) : (
-          messages.map((msg, idx) => {
-            const isMe = msg.senderId === myId;
-            const isSelected = selectedMessages.has(msg.id);
-            const isEditing = editingMessageId === msg.id;
-
-            return (
-              <div
-                key={idx}
-                className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2 ${isSelected ? 'bg-fdvp-primary/5 -mx-2 px-2 py-1 rounded-lg' : ''}`}
-                onClick={() => selectionMode && toggleSelection(msg.id)} // Desktop click
-                onTouchStart={() => handleTouchStart(msg)}
-                onTouchEnd={handleTouchEnd}
-                onMouseDown={() => handleTouchStart(msg)} // Desktop long press
-                onMouseUp={handleTouchEnd}
-                onMouseLeave={handleTouchEnd}
-              >
-                {/* Reply Indicator in Message */}
-                {msg.replyToText && !isEditing && (
-                  <div className={`text-[10px] mb-1 px-2 py-1 rounded border-l-2 opacity-70 truncate max-w-[200px] ${isMe ? 'border-fdvp-bg/50 bg-black/10' : 'border-fdvp-primary bg-fdvp-text/5'}`}>
-                    Replying to: {msg.replyToText}
-                  </div>
-                )}
-
-                {isEditing ? (
-                  // Edit Mode
-                  <div className="w-full max-w-[80%] min-w-[200px]">
-                    <div className="flex items-center gap-2 bg-fdvp-card border border-fdvp-primary/50 rounded-2xl p-2 shadow-xl">
-                      <input
-                        type="text"
-                        value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
-                        className="flex-1 bg-transparent text-fdvp-text-light text-sm px-2 py-1 border-none focus:outline-none"
-                        autoFocus
-                      />
-                      <button onClick={saveEdit} className="p-1.5 bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white rounded-full transition-all"><Check size={14} /></button>
-                      <button onClick={cancelEdit} className="p-1.5 bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white rounded-full transition-all"><X size={14} /></button>
-                    </div>
-                  </div>
-                ) : (
-                  // Normal Message
-                  <div className="flex items-end gap-2 group relative">
-                    {selectionMode && (
-                      <button onClick={() => toggleSelection(msg.id)} className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? 'bg-fdvp-primary border-fdvp-primary' : 'border-fdvp-text/30'}`}>
-                        {isSelected && <Check size={12} className="text-white" />}
-                      </button>
-                    )}
-
-                    <div className={`relative max-w-[90%] md:max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-sm backdrop-blur-md ${isMe
-                      ? 'bg-fdvp-primary text-fdvp-bg rounded-br-sm'
-                      : 'bg-fdvp-text/10 text-fdvp-text-light rounded-bl-sm border border-fdvp-text/5'
-                      }`}>
-
-                      <span className="block leading-relaxed whitespace-pre-wrap break-words min-w-[20px]">
-                        {msg.text}
-                      </span>
-
-                      <div className={`flex items-center gap-1 mt-1 justify-end ${isMe ? "text-fdvp-bg/60" : "text-fdvp-text"}`}>
-                        <span className="text-[9px] font-mono opacity-80">
-                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        {isMe && (
-                          <div className="flex items-center">
-                            {msg.status === 'sending' ? (
-                              <Loader2 size={10} className="animate-spin text-fdvp-text/50 mr-1" />
-                            ) : (
-                              <CheckCheck size={12} className={msg.isRead ? "text-fdvp-bg" : "text-fdvp-bg/40"} />
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })
+          messages.map((msg, idx) => (
+            <ChatBubble
+              key={msg.id || idx}
+              msg={msg}
+              isMe={msg.senderId === myId}
+              isSelectionMode={selectionMode}
+              isSelected={selectedMessages.has(msg.id)}
+              onSelect={toggleSelection}
+              onReply={handleReply}
+              onCopy={handleCopy}
+              onDeleteForMe={(id) => handleDeleteForMe(id)}
+              onDeleteForEveryone={(id) => handleDeleteForEveryone(id)}
+            />
+          ))
         )}
 
         {isTyping && (

@@ -33,8 +33,8 @@ messaging.onBackgroundMessage((payload) => {
         body: body || 'You have a new message.',
         icon: icon || '/icons/icon-192x192.png',
         badge: '/icons/badge-96x96.png', // Add badge if available
-        tag: 'chat-notification', // Grouping tag
-        renotify: true, // Vibrate/Sound again even if tag exists
+        // tag: 'chat-notification', // OMITTED to allow stacking (infinite notifications)
+        renotify: true, // Vibrate/Sound again
         vibrate: [200, 100, 200], // Explicit vibration
         timestamp: Date.now(),
         data: {
