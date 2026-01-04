@@ -136,8 +136,23 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
     socket.on("receiveMessage", (newMsg: Message) => {
       setIsTyping(false);
       setMessages((prev) => {
-        // Prevent duplicate append
+        // 1. Strict Dedupe by ID
         if (prev.some((msg) => msg.id === newMsg.id)) return prev;
+
+        // 2. Fuzzy Dedupe for Own Messages (Optimistic vs Server Race Condition)
+        if (newMsg.senderId === myId) {
+          const duplicate = prev.find(m =>
+            m.text === newMsg.text &&
+            m.senderId === newMsg.senderId &&
+            Math.abs(new Date(m.createdAt).getTime() - new Date(newMsg.createdAt).getTime()) < 5000 // 5s tolerance
+          );
+
+          if (duplicate) {
+            // Replace optimistic message with server message (updates ID/status)
+            return prev.map(m => m.id === duplicate.id ? newMsg : m);
+          }
+        }
+
         const updated = [...prev, newMsg];
         return updated.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
       });
