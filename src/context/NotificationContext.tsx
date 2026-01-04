@@ -119,56 +119,51 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     useEffect(() => {
         if (!user) return;
 
-        // REGISTER SERVICE WORKER (Wajib untuk notifikasi Android/HyperOS saat background)
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js')
-                .then(reg => {
-                    console.log('Service Worker registered:', reg);
-                    // Ensure active immediatley
-                    if (reg.installing) {
-                        console.log('Service worker installing');
-                    } else if (reg.waiting) {
-                        console.log('Service worker installed');
-                    } else if (reg.active) {
-                        console.log('Service worker active');
-                    }
-                })
-                .catch(err => console.log('Service Worker registration failed:', err));
-
-            // Re-request permission if default
-            if (Notification.permission === 'default') {
-                Notification.requestPermission();
-            }
-        }
-
         // ==========================================
         // FCM LOGIC (Firebase Cloud Messaging)
         // ==========================================
         const initFcm = async () => {
             try {
+                // 0. Register Service Worker first & Wait for Active
+                if (!('serviceWorker' in navigator)) {
+                    console.warn("Service Worker not supported");
+                    return;
+                }
+
+                const reg = await navigator.serviceWorker.register('/sw.js');
+                console.log("Service Worker registered in initFcm:", reg);
+
+                // Wait for Activations (fix: no active Service Worker)
+                await navigator.serviceWorker.ready;
+
+                // Double check active state
+                if (!reg.active) {
+                    console.log("Waiting for SW activation...");
+                    await new Promise<void>(resolve => {
+                        const worker = reg.installing || reg.waiting;
+                        if (worker) {
+                            worker.addEventListener('statechange', (e) => {
+                                if ((e.target as any).state === 'activated') resolve();
+                            });
+                        } else {
+                            setTimeout(resolve, 1000); // fallback
+                        }
+                    });
+                }
+                console.log("Service Worker is ACTIVE!");
+
                 const messaging = getMessaging(app);
 
                 // 1. Request Permission
                 const permission = await Notification.requestPermission();
                 if (permission === 'granted') {
-
-
-
-                    // 2. Get Token (HARDCODED TEMPORARY FIX - SECOND KEY)
+                    // 2. Get Token (HARDCODED KEY 2)
                     const vapidKey = "BJwBRKoq_Pl1LL9xjTaCbA2DWblHJuOAIPfRNOdx3SmPTH1ulV3-uYGW_uBeu-Wj9WrHvfEOAK1QVIWgcHm7IBw";
-
                     console.log("Using VAPID Key:", vapidKey);
-
-                    // Force use of our 'sw.js'
-                    let registration;
-                    if ('serviceWorker' in navigator) {
-                        registration = await navigator.serviceWorker.ready;
-                        console.log("Using SW Registration:", registration);
-                    }
 
                     const currentToken = await getToken(messaging, {
                         vapidKey: vapidKey,
-                        serviceWorkerRegistration: registration
+                        serviceWorkerRegistration: reg
                     });
 
                     if (currentToken) {
@@ -185,7 +180,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                             console.log("FCM Token saved to backend");
                         }
                     } else {
-                        console.log('No registration token available. Request permission to generate one.');
+                        console.log('No registration token available.');
                     }
 
                     // 3. Foreground Message Handler
@@ -200,6 +195,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
             }
         };
 
+        // Call init immediately
         initFcm();
         // ==========================================
 
