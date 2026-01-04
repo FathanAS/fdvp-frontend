@@ -5,12 +5,13 @@ importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-comp
 // or "Project Settings" > "General" from Firebase Console.
 // Environment variables do not work here in Service Worker directly.
 firebase.initializeApp({
-    apiKey: "REPLACE_WITH_YOUR_API_KEY",
-    authDomain: "REPLACE_WITH_YOUR_AUTH_DOMAIN",
-    projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
-    storageBucket: "REPLACE_WITH_YOUR_STORAGE_BUCKET",
-    messagingSenderId: "REPLACE_WITH_YOUR_MESSAGING_SENDER_ID",
-    appId: "REPLACE_WITH_YOUR_APP_ID",
+    apiKey: "AIzaSyAvqTvItXWYsEp7JY_61Ks-djHRiO32O18",
+    authDomain: "fdvp-db.firebaseapp.com",
+    projectId: "fdvp-db",
+    storageBucket: "fdvp-db.firebasestorage.app",
+    messagingSenderId: "1085243279530",
+    appId: "1:1085243279530:web:f6a32fe0abff4dae37e8d3",
+    measurementId: "G-NF8P5HKCCJ"
 });
 
 const messaging = firebase.messaging();
