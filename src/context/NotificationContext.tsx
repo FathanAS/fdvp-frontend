@@ -154,8 +154,8 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
 
 
-                    // 2. Get Token (HARDCODED TEMPORARY FIX)
-                    const vapidKey = "Bl8wBxWj1JD2YO6RG3tXFVAweBquW5DoJMo1IW7bTu7OW5Bl4jABybHD3xFugvBpKqqOy2pdtnS1WhqQNSzQGp4";
+                    // 2. Get Token (HARDCODED TEMPORARY FIX - SECOND KEY)
+                    const vapidKey = "BJwBRKoq_Pl1LL9xjTaCbA2DWblHJuOAIPfRNOdx3SmPTH1ulV3-uYGW_uBeu-Wj9WrHvfEOAK1QVIWgcHm7IBw";
 
                     console.log("Using VAPID Key:", vapidKey);
 
