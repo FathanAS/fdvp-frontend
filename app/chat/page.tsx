@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { io } from "socket.io-client";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
@@ -24,37 +25,32 @@ export default function ChatPage() {
             router.push("/login");
             return;
         }
-        if (!user) return; // Wait for user to be loaded
+        if (!user) return;
 
         setLoading(true);
-        // 1. Listen to "My Conversations" (Active Chats)
-        // Path: conversations/{myId}/active/{partnerId}
-        const conversationsRef = collection(db, "conversations", user.uid, "active");
 
-        // Sorting by last message timestamp
+        // 1. Listen to Firestore "conversations" (Realtime Updates for Contact List)
+        const conversationsRef = collection(db, "conversations", user.uid, "active");
         const q = query(conversationsRef, orderBy("timestamp", "desc"));
 
         const unsubscribe = onSnapshot(q, async (snapshot) => {
-            const chats: any[] = [];
-
-            // 2. For each chat, we might need to fetch the partner's latest details (Photo/Name)
-            // because the cache in 'conversations' might be outdated or missing (for sender side).
             const promises = snapshot.docs.map(async (docSnap) => {
                 const chatData = docSnap.data();
                 const partnerId = chatData.partnerId || chatData.uid;
 
-                // Try to get cached info first from chatData if available (fast render)
                 let displayData = {
                     id: partnerId,
                     displayName: chatData.partnerName || "Unknown",
                     photoURL: chatData.partnerPhoto || "",
                     lastMessage: chatData.lastMessage,
                     timestamp: chatData.timestamp,
-                    job: "Member", // Default
-                    uid: chatData.uid
+                    job: "Member",
+                    uid: chatData.uid,
+                    isOnline: false, // Default status
+                    lastSeen: null
                 };
 
-                // 3. Fetch fresh User Profile (Optional but recommended for consistency)
+                // Fetch fresh User Profile & Status
                 try {
                     const userDocRef = doc(db, "users", partnerId);
                     const userDocSnap = await getDoc(userDocRef);
@@ -63,9 +59,11 @@ export default function ChatPage() {
                         displayData.displayName = userData.displayName || displayData.displayName;
                         displayData.photoURL = userData.photoURL || displayData.photoURL;
                         displayData.job = userData.job || userData.role || "Member";
+                        displayData.isOnline = userData.isOnline || false;
+                        displayData.lastSeen = userData.lastSeen || null;
                     }
                 } catch (e) {
-                    console.warn("Failed to fetch user details for chat list", e);
+                    console.warn("Failed to fetch user details", e);
                 }
 
                 return displayData;
@@ -77,6 +75,35 @@ export default function ChatPage() {
         });
 
         return () => unsubscribe();
+    }, [user, authLoading]);
+
+    // 2. Global Socket Listener for Realtime Status Updates in List
+    useEffect(() => {
+        if (!user) return;
+        const socket = io(process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3001", {
+            transports: ["websocket"],
+            query: { userId: user.uid },
+            reconnection: true
+        });
+
+        socket.on('userStatus', (data: { userId: string; isOnline: boolean; lastSeen?: string }) => {
+            setContacts(prev => prev.map(c =>
+                c.id === data.userId
+                    ? { ...c, isOnline: data.isOnline, lastSeen: data.lastSeen }
+                    : c
+            ));
+        });
+
+        // Listen for new messages to update "lastMessage" instantly even if Firestore is lagging slightly
+        socket.on('receiveMessage', (msg: any) => {
+            // Optional: You could optimistically update the contact list order here 
+            // but Firestore onSnapshot usually handles this fast enough if Backend updates the doc.
+            // We'll trust Firestore + Manual Sync backup.
+        });
+
+        return () => {
+            socket.disconnect();
+        }
     }, [user]);
 
     const handleSyncChats = async () => {
