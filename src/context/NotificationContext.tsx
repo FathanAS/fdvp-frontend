@@ -156,11 +156,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                     // 2. Get Token (HARDCODED TEMPORARY FIX)
                     const vapidKey = "Bl8wBxWj1JD2YO6RG3tXFVAweBquW5DoJMo1IW7bTu7OW5Bl4jABybHD3xFugvBpKqqOy2pdtnS1WhqQNSzQGp4";
 
-                    /* 
-                    const rawKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
-                    const vapidKey = rawKey?.replace(/[\n\r\s]/g, "");
-                    if (!vapidKey) return; 
-                    */
+                    console.log("Using VAPID Key:", vapidKey);
 
                     const currentToken = await getToken(messaging, {
                         vapidKey: vapidKey
