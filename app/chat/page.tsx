@@ -77,7 +77,7 @@ export default function ChatPage() {
         return () => unsubscribe();
     }, [user, authLoading]);
 
-    // 2. Global Socket Listener for Realtime Status Updates in List
+    // 2. Global Socket Listener for Realtime Status Updates in List & Visibility Handler
     useEffect(() => {
         if (!user) return;
         const socket = io(process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3001", {
@@ -94,15 +94,32 @@ export default function ChatPage() {
             ));
         });
 
-        // Listen for new messages to update "lastMessage" instantly even if Firestore is lagging slightly
+        // RE-FETCH saat ada pesan baru masuk (agar list naik ke atas)
         socket.on('receiveMessage', (msg: any) => {
-            // Optional: You could optimistically update the contact list order here 
-            // but Firestore onSnapshot usually handles this fast enough if Backend updates the doc.
-            // We'll trust Firestore + Manual Sync backup.
+            console.log("New message received, refreshing list...");
+            // Kita panggil fungsi sync/fetch ulang
+            // Karena onSnapshot kadang delay atau butuh trigger
+            // Namun, onSnapshot seharusnya otomatis. 
+            // Jika tidak, kita bisa manual setContacts atau re-fetch.
+            // Untuk kepastian mobile, kita force sync.
+            handleSyncChats();
         });
+
+        // RE-FETCH saat user kembali ke Tab (Mobile wake up)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                console.log("Tab is visible again, syncing chats...");
+                handleSyncChats();
+
+                // Re-emit status online
+                socket.emit("joinRoom", { roomId: "global" }); // Pancingan agar status aktif
+            }
+        };
+        document.addEventListener("visibilitychange", handleVisibilityChange);
 
         return () => {
             socket.disconnect();
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
         }
     }, [user]);
 

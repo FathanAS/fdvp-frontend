@@ -112,6 +112,8 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         }
     };
 
+    const processedRefs = useRef(new Set<string>());
+
     useEffect(() => {
         if (!user) return;
 
@@ -134,6 +136,18 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         // LISTENER NOTIFIKASI
         socket.on("receiveNotification", async (data: { senderName: string, text: string, senderPhoto?: string, roomId: string }) => {
             console.log("🔔 CLIENT RECEIVED NOTIF:", data);
+
+            // DEDUPLICATION CHECK (Anti-Spam / Anti-Double)
+            const notifKey = `${data.roomId}-${data.text}`;
+            if (processedRefs.current.has(notifKey)) {
+                console.log("Duplicate notification suppressed:", notifKey);
+                return;
+            }
+            // Add to set and expire after 2 seconds
+            processedRefs.current.add(notifKey);
+            setTimeout(() => {
+                processedRefs.current.delete(notifKey);
+            }, 2000);
 
             if (mutedRef.current) return;
 
