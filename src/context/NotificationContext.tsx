@@ -4,6 +4,8 @@ import React, { createContext, useContext, useEffect, useRef, useState } from "r
 import { io, Socket } from "socket.io-client";
 import { useAuth } from "./AuthContext";
 import iziToast from "izitoast";
+import { getMessaging, getToken, onMessage } from "firebase/messaging";
+import { app } from "@/lib/firebase";
 
 interface NotificationContextType {
     notify: (title: string, message: string, type?: 'success' | 'error' | 'info' | 'chat', image?: string) => void;
@@ -138,6 +140,60 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                 Notification.requestPermission();
             }
         }
+
+        // ==========================================
+        // FCM LOGIC (Firebase Cloud Messaging)
+        // ==========================================
+        const initFcm = async () => {
+            try {
+                const messaging = getMessaging(app);
+
+                // 1. Request Permission
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+
+                    // 2. Get Token
+                    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+                    if (!vapidKey) {
+                        console.warn("FCM VAPID Key is missing in .env");
+                        return;
+                    }
+
+                    const currentToken = await getToken(messaging, {
+                        vapidKey: vapidKey
+                    });
+
+                    if (currentToken) {
+                        console.log("FCM Token:", currentToken);
+                        // Save to Backend
+                        const savedToken = localStorage.getItem("fcm_token");
+                        if (savedToken !== currentToken) {
+                            await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API}/users/fcm-token`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ userId: user.uid, token: currentToken })
+                            });
+                            localStorage.setItem("fcm_token", currentToken);
+                            console.log("FCM Token saved to backend");
+                        }
+                    } else {
+                        console.log('No registration token available. Request permission to generate one.');
+                    }
+
+                    // 3. Foreground Message Handler
+                    onMessage(messaging, (payload) => {
+                        console.log('FCM Foreground Message:', payload);
+                        const { title, body, icon } = payload.notification || {};
+                        notify(title || 'New Message', body || '', 'chat', icon);
+                    });
+                }
+            } catch (error) {
+                console.error("FCM Init Error:", error);
+            }
+        };
+
+        initFcm();
+        // ==========================================
 
         // INIT SOCKET GLOBAL
         const socket = io(process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3001", {

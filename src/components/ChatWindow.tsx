@@ -218,10 +218,16 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
     }, 2000);
   };
 
-  const sendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || !socketRef.current) return;
+  // State
+  const [isSending, setIsSending] = useState(false);
 
+  // ...
+
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || !socketRef.current || isSending) return; // Prevent double send
+
+    setIsSending(true);
     socketRef.current.emit("typing", { roomId, userId: myId, isTyping: false });
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
@@ -240,9 +246,13 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
     } as any;
 
     setMessages((prev) => [...prev, msgData]);
+    // Emit and wait slightly to throttle
     socketRef.current.emit("sendMessage", msgData);
+
     setInput("");
     setReplyingTo(null);
+
+    setTimeout(() => setIsSending(false), 500); // Debounce 500ms
   };
 
   // Selection Logic
