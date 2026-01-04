@@ -175,7 +175,24 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
       setMessages((prev) => prev.filter((msg) => !data.messageIds.includes(msg.id)));
     });
 
-    return () => { socket.disconnect(); };
+    // RE-FETCH saat user kembali ke Tab (Mobile wake-up)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        console.log("Chat Window visible: fetching latest messages...");
+        fetchHistory();
+        // Cek koneksi socket
+        if (socket.connected === false) {
+          socket.connect();
+          socket.emit("joinRoom", { roomId });
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      socket.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [roomId, myId, otherUser.id]);
 
   const scrollToBottom = () => setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
