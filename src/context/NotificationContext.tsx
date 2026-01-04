@@ -158,8 +158,8 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                 const permission = await Notification.requestPermission();
                 if (permission === 'granted') {
                     // 2. Get Token
-                    // 2. Get Token (Hardcoded for stability)
-                    const vapidKey = "BJwBRKoq_Pl1LL9xjTaCbA2DWblHJuOAIPfRNOdx3SmPTH1ulV3-uYGW_uBeu-Wj9WrHvfEOAK1QVIWgcHm7IBw";
+                    // 2. Get Token (Current Pair Key)
+                    const vapidKey = "BI8wBxWj1JD2Y06RG3tXFVAweBquW5DoJMo1IW7bTu7OW5BI4jABybHD3xFugvBpKqq0y2pdtnS1WhqQNSzQGp4";
 
                     const currentToken = await getToken(messaging, {
                         vapidKey: vapidKey,
