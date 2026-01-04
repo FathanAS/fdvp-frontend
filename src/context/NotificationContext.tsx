@@ -115,103 +115,84 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     useEffect(() => {
         if (!user) return;
 
+        // REGISTER SERVICE WORKER (Wajib untuk notifikasi Android/HyperOS saat background)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker registered:', reg))
+                .catch(err => console.log('Service Worker registration failed:', err));
+        }
+
         // INIT SOCKET GLOBAL
         const socket = io(process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3001", {
             transports: ["websocket"],
-            query: { userId: user.uid }
+            query: { userId: user.uid },
+            reconnection: true,             // Auto reconnect
+            reconnectionAttempts: Infinity, // Terus mencoba
         });
         socketRef.current = socket;
-
-        // Helper untuk membuat icon bulat
-        const getCircularIcon = (url: string): Promise<string> => {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.crossOrigin = "Anonymous";
-                img.src = url;
-                img.onload = () => {
-                    try {
-                        const canvas = document.createElement("canvas");
-                        const w = 192;
-                        const h = 192;
-                        canvas.width = w;
-                        canvas.height = h;
-                        const ctx = canvas.getContext("2d");
-                        if (!ctx) return resolve(url);
-
-                        ctx.beginPath();
-                        ctx.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2, true);
-                        ctx.closePath();
-                        ctx.clip();
-                        ctx.drawImage(img, 0, 0, w, h);
-                        resolve(canvas.toDataURL());
-                    } catch (e) {
-                        resolve(url);
-                    }
-                };
-                img.onerror = () => resolve("/favicon.ico");
-            });
-        };
 
         // LISTENER NOTIFIKASI
         socket.on("receiveNotification", async (data: { senderName: string, text: string, senderPhoto?: string, roomId: string }) => {
             console.log("🔔 CLIENT RECEIVED NOTIF:", data);
 
-            // Cek Ref, bukan state 'muted' yang stale
             if (mutedRef.current) return;
 
-            // 1. Tampilkan In-App Toast
-            // Kita panggil notify manual di sini atau pakai logic iziToast langsung
-            // Karena `notify` function di luar useEffect ini bisa stale jika dependensi tidak diupdate.
-            // Agar aman, kita copy logic play sound & iziToast di sini atau fix notify dependency.
-            // Cara termudah: panggil notify, tapi pastikan notify tidak bergantung state yang sering berubah (selain muted yang sudah di-ref).
+            // STRATEGI NOTIFIKASI HYBRID (Mencegah Double & Memastikan Tembus OS)
 
-            // Play sound manual here to be safe
-            if (audioRef.current) audioRef.current.play().catch(e => console.log("Audio play failed"));
-
-            iziToast.show({
-                title: data.senderName,
-                message: data.text,
-                position: 'topRight',
-                theme: 'dark',
-                backgroundColor: '#161616',
-                titleColor: '#14FFEC',
-                messageColor: '#cccccc',
-                progressBarColor: '#14FFEC',
-                image: data.senderPhoto,
-                imageWidth: 40,
-                layout: 2,
-                timeout: 5000,
-            });
-
-            // 2. Tampilkan System / Desktop Notification
-            if ("Notification" in window && Notification.permission === "granted") {
-                // Jangan menunggu icon create, langsung tampilkan notif agar cepat
-                // Icon processing bisa lambat
-                let iconUrl = data.senderPhoto || "/favicon.ico";
-
-                try {
-                    // Try to send notification
-                    const notif = new Notification(`New message from ${data.senderName}`, {
-                        body: data.text,
-                        icon: iconUrl,
-                        tag: data.roomId,
-                        silent: false // Biarkan sistem bunyi juga jika user mau
-                    });
-
-                    notif.onclick = () => {
-                        window.focus();
-                        // Redirect ke chat room jika perlu: window.location.href = `/chat?room=${data.roomId}`
-                    };
-                } catch (e) {
-                    console.error("System notification failed:", e);
+            // KONDISI 1: User sedang membuka tab aplikasi (Active/Visible)
+            if (document.visibilityState === 'visible') {
+                // Play Sound
+                if (audioRef.current) {
+                    audioRef.current.currentTime = 0;
+                    audioRef.current.play().catch(e => console.log("Audio play failed"));
                 }
+
+                // Show In-App Toast ONLY
+                iziToast.show({
+                    title: data.senderName,
+                    message: data.text,
+                    position: 'topRight',
+                    theme: 'dark',
+                    backgroundColor: '#161616',
+                    titleColor: '#14FFEC',
+                    messageColor: '#cccccc',
+                    progressBarColor: '#14FFEC',
+                    image: data.senderPhoto,
+                    imageWidth: 40,
+                    layout: 2,
+                    timeout: 5000,
+                    // onClick: () => window.location.href = `/chat` // Opsional: redirect
+                });
+            }
+            // KONDISI 2: User sedang di tab lain atau Web di minimize (Background/Hidden)
+            else {
+                // Gunakan Service Worker Registration untuk menampilkan notifikasi System (Lebih kuat tembus OS Android)
+                if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+                    const registration = await navigator.serviceWorker.ready;
+                    registration.showNotification(`Message from ${data.senderName}`, {
+                        body: data.text,
+                        icon: data.senderPhoto || '/favicon.ico',
+                        tag: data.roomId, // Mencegah spam notif yang sama menumpuk
+                        data: { url: `/chat` } // Data untuk dihandle saat diklik di sw.js
+                    });
+                } else if ("Notification" in window && Notification.permission === "granted") {
+                    // Fallback jika SW belum ready (biasanya Desktop legacy)
+                    new Notification(`Message from ${data.senderName}`, {
+                        body: data.text,
+                        icon: data.senderPhoto || '/favicon.ico',
+                        tag: data.roomId,
+                    });
+                }
+
+                // Play Sound juga di background jika browser mengizinkan
+                if (audioRef.current) audioRef.current.play().catch(() => { });
             }
         });
 
         return () => {
             socket.disconnect();
         };
-    }, [user]); // Hapus 'muted' dari dependency array agar socket tidak reconnect saat mute ditoggle
+    }, [user]);
 
     return (
         <NotificationContext.Provider value={{ notify, muted, setMuted }}>
