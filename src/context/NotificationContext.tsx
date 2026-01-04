@@ -153,21 +153,14 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                 if (permission === 'granted') {
 
 
-                    // 2. Get Token
-                    // Clean the key (remove spaces/newlines)
+                    // 2. Get Token (HARDCODED TEMPORARY FIX)
+                    const vapidKey = "Bl8wBxWj1JD2YO6RG3tXFVAweBquW5DoJMo1IW7bTu7OW5Bl4jABybHD3xFugvBpKqqOy2pdtnS1WhqQNSzQGp4";
+
+                    /* 
                     const rawKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
                     const vapidKey = rawKey?.replace(/[\n\r\s]/g, "");
-
-                    if (!vapidKey) {
-                        console.warn("FCM VAPID Key is missing in .env");
-                        return;
-                    }
-
-                    // VALIDASI VAPID KEY (Sering salah copy API Key)
-                    if (vapidKey.startsWith('AIza')) {
-                        console.error("‼️ EROR CONFIG: VAPID Key is API KEY.");
-                        return;
-                    }
+                    if (!vapidKey) return; 
+                    */
 
                     const currentToken = await getToken(messaging, {
                         vapidKey: vapidKey
