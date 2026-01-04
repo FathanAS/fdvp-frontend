@@ -154,7 +154,10 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
 
                     // 2. Get Token
-                    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+                    // Clean the key (remove spaces/newlines)
+                    const rawKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+                    const vapidKey = rawKey?.replace(/[\n\r\s]/g, "");
+
                     if (!vapidKey) {
                         console.warn("FCM VAPID Key is missing in .env");
                         return;
@@ -162,13 +165,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
                     // VALIDASI VAPID KEY (Sering salah copy API Key)
                     if (vapidKey.startsWith('AIza')) {
-                        console.error("‼️ EROR CONFIG: VAPID Key yang Anda masukkan di .env sepertinya adalah API KEY (AIza...). Harusnya VAPID Key (Web Push Certificate) yang dimulai dengan huruf 'B...'. Cek Firebase Console > Project Settings > Cloud Messaging > Web Push certificates.");
-                        iziToast.error({
-                            title: "Config Error",
-                            message: "VAPID Key Salah! Cek Console.",
-                            position: 'topCenter',
-                            timeout: 10000
-                        });
+                        console.error("‼️ EROR CONFIG: VAPID Key is API KEY.");
                         return;
                     }
 
