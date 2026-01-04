@@ -153,13 +153,22 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                 if (permission === 'granted') {
 
 
+
                     // 2. Get Token (HARDCODED TEMPORARY FIX)
                     const vapidKey = "Bl8wBxWj1JD2YO6RG3tXFVAweBquW5DoJMo1IW7bTu7OW5Bl4jABybHD3xFugvBpKqqOy2pdtnS1WhqQNSzQGp4";
 
                     console.log("Using VAPID Key:", vapidKey);
 
+                    // Force use of our 'sw.js'
+                    let registration;
+                    if ('serviceWorker' in navigator) {
+                        registration = await navigator.serviceWorker.ready;
+                        console.log("Using SW Registration:", registration);
+                    }
+
                     const currentToken = await getToken(messaging, {
-                        vapidKey: vapidKey
+                        vapidKey: vapidKey,
+                        serviceWorkerRegistration: registration
                     });
 
                     if (currentToken) {

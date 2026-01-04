@@ -1,3 +1,16 @@
+importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
+
+firebase.initializeApp({
+    apiKey: "AIzaSyAvqTvItXWYsEp7JY_61Ks-djHRiO32O18",
+    authDomain: "fdvp-db.firebaseapp.com",
+    projectId: "fdvp-db",
+    storageBucket: "fdvp-db.firebasestorage.app",
+    messagingSenderId: "1085243279530",
+    appId: "1:1085243279530:web:f6a32fe0abff4dae37e8d3",
+    measurementId: "G-NF8P5HKCCJ"
+});
+
 self.addEventListener('install', (event) => {
     self.skipWaiting();
 });
@@ -6,11 +19,20 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(clients.claim());
 });
 
-self.addEventListener('push', function (event) {
-    if (event.data) {
-        const data = event.data.json();
-        // Fallback for real push if implemented later
-    }
+const messaging = firebase.messaging();
+
+// Handle background messages via FCM
+messaging.onBackgroundMessage((payload) => {
+    console.log('[sw.js] Received background message ', payload);
+    const notificationTitle = payload.notification.title;
+    const notificationOptions = {
+        body: payload.notification.body,
+        icon: payload.notification.icon || '/icon-192.png',
+        badge: '/icon-192.png',
+        data: payload.data
+    };
+
+    self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
 self.addEventListener('notificationclick', function (event) {
