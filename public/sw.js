@@ -2,7 +2,7 @@ importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-    apiKey: "AIzaSyAvqTvItXWYsEp7JY_61Ks-djHRiO32O18",
+    apiKey: "AIzaSyDxK3LEBQItUXyU_f0ar30miPhehNs8RNA",
     authDomain: "fdvp-db.firebaseapp.com",
     projectId: "fdvp-db",
     storageBucket: "fdvp-db.firebasestorage.app",

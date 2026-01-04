@@ -6,7 +6,7 @@ import { getStorage } from "firebase/storage"; // 1. Pastikan import ini ada
 
 const firebaseConfig = {
   // HARDCODED FOR DEBUGGING (FIX 403)
-  apiKey: "AIzaSyAvqTvItXWYsEp7JY_61Ks-djHRiO32O18", // Key Asli (Original)
+  apiKey: "AIzaSyDxK3LEBQItUXyU_f0ar30miPhehNs8RNA", // New Key from User
   authDomain: "fdvp-db.firebaseapp.com",
   projectId: "fdvp-db",
   storageBucket: "fdvp-db.firebasestorage.app",
