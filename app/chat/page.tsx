@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/context/AuthContext";
@@ -20,6 +20,8 @@ export default function ChatPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedContact, setSelectedContact] = useState<any>(null);
 
+    const userCache = useRef<Map<string, any>>(new Map());
+
     useEffect(() => {
         if (!authLoading && !user) {
             router.push("/login");
@@ -38,6 +40,7 @@ export default function ChatPage() {
                 const chatData = docSnap.data();
                 const partnerId = chatData.partnerId || chatData.uid;
 
+                // Default Display Data from Conversation (Fallback)
                 let displayData = {
                     id: partnerId,
                     displayName: chatData.partnerName || "Unknown",
@@ -48,33 +51,40 @@ export default function ChatPage() {
                     uid: chatData.uid,
                     isOnline: false,
                     lastSeen: null,
-                    unreadCount: chatData.unreadCount || 0 // Initial mapping
+                    unreadCount: chatData.unreadCount || 0
                 };
 
-                // Fetch fresh User Profile & Status 
-                // ... (code continues) ...
-
-
-                // ... later in JSX ...
-                // Fetch fresh User Profile & Status (moved logic back up if needed, but the JSX was just noise here)
-
-
-                // Fetch fresh User Profile & Status
-                try {
-                    const userDocRef = doc(db, "users", partnerId);
-                    const userDocSnap = await getDoc(userDocRef);
-                    if (userDocSnap.exists()) {
-                        const userData = userDocSnap.data();
-                        displayData.displayName = userData.displayName || displayData.displayName;
-                        displayData.photoURL = userData.photoURL || displayData.photoURL;
-                        displayData.job = userData.job || userData.role || "Member";
-                        displayData.isOnline = userData.isOnline || false;
-                        displayData.lastSeen = userData.lastSeen || null;
+                // OPTIMIZATION: Check Cache First
+                if (userCache.current.has(partnerId)) {
+                    // Use cached data
+                    const cachedUser = userCache.current.get(partnerId);
+                    displayData = { ...displayData, ...cachedUser, unreadCount: displayData.unreadCount };
+                } else {
+                    // Fetch fresh User Profile & Status only if not in cache
+                    try {
+                        const userDocRef = doc(db, "users", partnerId);
+                        const userDocSnap = await getDoc(userDocRef);
+                        if (userDocSnap.exists()) {
+                            const userData = userDocSnap.data();
+                            const enrichedData = {
+                                displayName: userData.displayName || displayData.displayName,
+                                photoURL: userData.photoURL || displayData.photoURL,
+                                job: userData.job || userData.role || "Member",
+                                isOnline: userData.isOnline || false,
+                                lastSeen: userData.lastSeen || null
+                            };
+                            // Save to Cache
+                            userCache.current.set(partnerId, enrichedData);
+                            // Merge
+                            displayData = { ...displayData, ...enrichedData };
+                        }
+                    } catch (e) {
+                        console.warn("Failed to fetch user details", e);
                     }
-                    displayData.unreadCount = chatData.unreadCount || 0; // <--- Map Unread Count
-                } catch (e) {
-                    console.warn("Failed to fetch user details", e);
                 }
+
+                // Update unread count strictly from chatData (Realtime)
+                displayData.unreadCount = chatData.unreadCount || 0;
 
                 return displayData;
             });

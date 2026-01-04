@@ -138,7 +138,8 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
       setMessages((prev) => {
         // Prevent duplicate append
         if (prev.some((msg) => msg.id === newMsg.id)) return prev;
-        return [...prev, newMsg];
+        const updated = [...prev, newMsg];
+        return updated.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
       });
       scrollToBottom();
 
