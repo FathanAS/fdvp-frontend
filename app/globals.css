@@ -1,26 +1,400 @@
 @import "tailwindcss";
 
+@theme {
+  --color-fdvp-bg: var(--fdvp-bg);
+  --color-fdvp-card: var(--fdvp-card);
+  --color-fdvp-primary: var(--fdvp-primary);
+  --color-fdvp-accent: var(--fdvp-accent);
+  --color-fdvp-text: var(--fdvp-text);
+  --color-fdvp-light: var(--fdvp-text-light);
+  --color-fdvp-text-light: var(--fdvp-text-light);
+
+  /* Standard Aliases */
+  --color-background: var(--fdvp-bg);
+  --color-card: var(--fdvp-card);
+  --color-primary: var(--fdvp-primary);
+  --color-accent: var(--fdvp-accent);
+  --color-secondary: var(--fdvp-text);
+  --color-foreground: var(--fdvp-text-light);
+}
+
+/* Enable class-based dark mode */
+@variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* LIGHT MODE - Clean & Modern */
+  --fdvp-bg: #f8fafc;
+  /* Slate-50 */
+  --fdvp-card: #ffffff;
+  /* Pure White */
+  --fdvp-primary: #0D7377;
+  /* Teal Brand */
+  --fdvp-accent: #0f8c8f;
+  /* Slightly lighter Teal for hover */
+  --fdvp-text: #64748b;
+  /* Slate-500 (Secondary Text) */
+  --fdvp-text-light: #1e293b;
+  /* Slate-800 (Primary Headings) */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  /* DARK MODE - Premium Glass/Neon */
+  --fdvp-bg: #0a0a0a;
+  /* Deepest Black */
+  --fdvp-card: #171717;
+  /* Neutral-900 */
+  --fdvp-primary: #14FFEC;
+  /* Neon Cyan */
+  --fdvp-accent: #0D7377;
+  /* Darker Teal */
+  --fdvp-text: #a3a3a3;
+  /* Neutral-400 */
+  --fdvp-text-light: #ffffff;
+  /* White */
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--fdvp-bg);
+  color: var(--fdvp-text);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* OPTIMIZED FOR PERFORMANCE */
+
+/* Disable heavy animations on low-power mode or user preference */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Scrollbar Styling for Webkit */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--fdvp-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--fdvp-card);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fdvp-primary);
+}
+
+/* LEAFLET POPUP CUSTOMIZATION */
+.custom-popup .leaflet-popup-content-wrapper {
+  background: rgba(0, 0, 0, 0.9) !important;
+  color: white !important;
+  border-radius: 12px !important;
+  padding: 0 !important;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.custom-popup .leaflet-popup-content {
+  margin: 12px 16px !important;
+  min-width: fit-content !important;
+  width: auto !important;
+}
+
+.custom-popup .leaflet-popup-tip {
+  background: rgba(0, 0, 0, 0.9) !important;
+}
+
+
+.custom-popup a.leaflet-popup-close-button {
+  display: none;
+}
+
+/* GOOGLE PLACES AUTOCOMPLETE CUSTOMIZATION */
+.pac-container {
+  background-color: var(--fdvp-card) !important;
+  border: 1px solid rgba(128, 128, 128, 0.1) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+  font-family: inherit !important;
+  margin-top: 8px !important;
+  color: var(--fdvp-text) !important;
+  z-index: 99999 !important;
+}
+
+/* Force dark mode colors explicitly if variables miss */
+.dark .pac-container {
+  background-color: #171717 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.pac-item {
+  cursor: pointer;
+  padding: 12px 16px !important;
+  color: var(--fdvp-text) !important;
+  border-top: 1px solid rgba(128, 128, 128, 0.05) !important;
+  line-height: 1.5 !important;
+  font-size: 0.875rem !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.dark .pac-item {
+  color: #a3a3a3 !important;
+  border-top-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.pac-item:first-child {
+  border-top: none !important;
+  border-top-left-radius: 0.75rem !important;
+  border-top-right-radius: 0.75rem !important;
+}
+
+.pac-item:last-child {
+  border-bottom-left-radius: 0.75rem !important;
+  border-bottom-right-radius: 0.75rem !important;
+}
+
+.pac-item:hover,
+.pac-item-selected {
+  background-color: var(--fdvp-primary) !important;
+  color: var(--fdvp-bg) !important;
+}
+
+.pac-item:hover .pac-item-query,
+.pac-item-selected .pac-item-query {
+  color: var(--fdvp-bg) !important;
+}
+
+.pac-item:hover span,
+.pac-item-selected span {
+  color: var(--fdvp-bg) !important;
+  opacity: 0.8;
+}
+
+/* The typed/matched part */
+.pac-item-query {
+  color: var(--fdvp-text-light) !important;
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  margin-right: 4px;
+}
+
+.dark .pac-item-query {
+  color: #ffffff !important;
+}
+
+/* ICONS HANDLING */
+.pac-icon {
+  margin-top: 0 !important;
+  margin-right: 12px !important;
+}
+
+/* Dark mode icon adjustment */
+.dark .pac-icon {
+  filter: invert(1) opacity(0.7);
+}
+
+.dark .pac-logo::after {
+  filter: invert(1) opacity(0.5);
+}
+
+.dark .pac-item:hover .pac-icon,
+.dark .pac-item-selected .pac-icon {
+  filter: invert(0) !important;
+  opacity: 1 !important;
+}
+
+.pac-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+.pac-container::-webkit-scrollbar-thumb {
+  background: var(--fdvp-text);
+  border-radius: 2px;
+}
+
+/* REACT DATEPICKER CUSTOMIZATION */
+.react-datepicker-wrapper {
+  width: 100%;
+}
+
+.react-datepicker {
+  background-color: var(--fdvp-card) !important;
+  border: 1px solid rgba(128, 128, 128, 0.1) !important;
+  color: var(--fdvp-text-light) !important;
+  font-family: inherit !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+  overflow: hidden;
+  display: flex !important;
+  /* Fix vertical alignment */
+}
+
+.dark .react-datepicker {
+  background-color: #171717 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+.react-datepicker__header {
+  background-color: var(--fdvp-text) !important;
+  background: rgba(128, 128, 128, 0.05) !important;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.05) !important;
+  padding-top: 1rem !important;
+}
+
+.dark .react-datepicker__header {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.react-datepicker__current-month,
+.react-datepicker-time__header,
+.react-datepicker-year-header {
+  color: var(--fdvp-text-light) !important;
+  font-weight: 700 !important;
+}
+
+.dark .react-datepicker__current-month,
+.dark .react-datepicker-time__header,
+.dark .react-datepicker-year-header {
+  color: #ffffff !important;
+}
+
+.react-datepicker__day-name {
+  color: var(--fdvp-text) !important;
+  opacity: 0.7;
+}
+
+.dark .react-datepicker__day-name {
+  color: #a3a3a3 !important;
+}
+
+.react-datepicker__day {
+  color: var(--fdvp-text-light) !important;
+  border-radius: 0.5rem !important;
+  transition: all 0.2s ease !important;
+}
+
+.dark .react-datepicker__day {
+  color: #ffffff !important;
+}
+
+.react-datepicker__day:hover {
+  background-color: var(--fdvp-text) !important;
+  background: rgba(128, 128, 128, 0.1) !important;
+}
+
+.dark .react-datepicker__day:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected,
+.react-datepicker__time-list-item--selected {
+  background-color: var(--fdvp-primary) !important;
+  color: var(--fdvp-bg) !important;
+  font-weight: bold !important;
+}
+
+/* FIX: TIME CONTAINER DARK MODE BACKGROUND */
+.react-datepicker__time-container {
+  border-left: 1px solid rgba(128, 128, 128, 0.05) !important;
+  background-color: transparent !important;
+  /* Allow parent bg to shine through */
+}
+
+.dark .react-datepicker__time-container {
+  border-left-color: rgba(255, 255, 255, 0.1) !important;
+  background-color: #171717 !important;
+  /* Force dark bg */
+}
+
+.react-datepicker__time-container .react-datepicker__time {
+  background-color: transparent !important;
+  border-radius: 0 !important;
+}
+
+.dark .react-datepicker__time-container .react-datepicker__time {
+  background-color: #171717 !important;
+}
+
+/* Fix Time Box & List text */
+.react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box {
+  width: 100% !important;
+  border-radius: 0 !important;
+}
+
+.react-datepicker__time-list {
+  background-color: transparent !important;
+}
+
+.react-datepicker__time-list-item {
+  color: var(--fdvp-text-light) !important;
+  height: auto !important;
+  padding: 8px 12px !important;
+  font-size: 0.85rem !important;
+}
+
+.dark .react-datepicker__time-list-item {
+  color: #ffffff !important;
+  background-color: transparent !important;
+}
+
+.react-datepicker__time-list-item:hover {
+  background-color: rgba(128, 128, 128, 0.1) !important;
+}
+
+.dark .react-datepicker__time-list-item:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Selected Time Item */
+.react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item--selected {
+  background-color: var(--fdvp-primary) !important;
+  color: var(--fdvp-bg) !important;
+  font-weight: bold !important;
+}
+
+/* SCROLLBAR FOR TIME LIST */
+.react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list::-webkit-scrollbar-thumb {
+  background: var(--fdvp-text);
+  border-radius: 2px;
+}
+
+
+/* Navigation Icons */
+.react-datepicker__navigation-icon::before {
+  border-color: var(--fdvp-text) !important;
+}
+
+.dark .react-datepicker__navigation-icon::before {
+  border-color: #ffffff !important;
+}
+
+.react-datepicker__triangle {
+  display: none !important;
+}
+
+/* Input Customization inside wrapper */
+.custom-datepicker-input-container svg {
+  color: var(--fdvp-text);
+  /* Default icon color */
+}
+
+.custom-datepicker-input-container:focus-within svg {
+  color: var(--fdvp-primary);
+  /* Active icon color */
 }
