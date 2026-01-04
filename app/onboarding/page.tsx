@@ -49,6 +49,7 @@ export default function OnboardingPage() {
 
     // Location Helper State
     const [gettingLocation, setGettingLocation] = useState(false);
+    const [coords, setCoords] = useState<{ latitude: number, longitude: number } | null>(null); // Store Lat/Long
 
     useEffect(() => {
         const unsubscribe = auth.onAuthStateChanged(async (currentUser: any) => {
@@ -86,6 +87,8 @@ export default function OnboardingPage() {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
+                setCoords({ latitude, longitude }); // Save coords
+
                 // Fetch Address from Nominatim (OpenStreetMap)
                 fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
                     .then(res => res.json())
@@ -112,29 +115,32 @@ export default function OnboardingPage() {
         if (!user) return;
         setSaving(true);
         try {
-            await updateDoc(doc(db, "users", user.uid), {
-                dob: dob, // Private DOB
-                age: calculatedAge, // Publicly filterable age (if showAge is true)
+            // Prepare update data
+            const updateData: any = {
+                dob: dob,
+                age: calculatedAge,
                 showAge: showAge,
                 gender: gender,
-                // Assign first role as 'job' if available, otherwise 'Member'
-                job: roles.join(', '),
+                job: roles.join(', ') || "Member",
                 tags: roles,
-
-                // Location
                 province,
                 city,
-
-                // Socials
                 instagram,
                 github,
                 linkedin,
                 website,
-
-                // Mark flag
                 onboardingCompleted: true,
-                updatedAt: new Date().toISOString()
-            });
+                updatedAt: new Date().toISOString(),
+                isOnline: true // Ensure online status
+            };
+
+            // Save Coords if available
+            if (coords) {
+                updateData.latitude = coords.latitude;
+                updateData.longitude = coords.longitude;
+            }
+
+            await updateDoc(doc(db, "users", user.uid), updateData);
             router.push("/dashboard");
         } catch (error) {
             console.error("Error saving profile:", error);

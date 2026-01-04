@@ -62,10 +62,14 @@ export default function LoginPage() {
           displayName: user.displayName,
           email: user.email,
           photoURL: user.photoURL,
-          role: "member",
+          role: "user",
           createdAt: new Date(),
           username: user.email?.split("@")[0].toLowerCase() || "user",
-          onboardingCompleted: false
+          onboardingCompleted: false,
+          isOnline: true,
+          lastSeen: new Date().toISOString(),
+          tags: [], // Initialize empty arrays to prevent undefined errors
+          job: "Member"
         });
         router.push("/onboarding");
       } else {
