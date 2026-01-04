@@ -291,9 +291,30 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
     if (selectedMessages.size === 0) return;
     const messageList = Array.from(selectedMessages);
 
+    // Security: Only allow deleting OWN messages for "Unsend"
+    // Filter messages that belong to me
+    const myMsgIds = messageList.filter(id => {
+      const msg = messages.find(m => m.id === id);
+      return msg && msg.senderId === myId;
+    });
+
+    if (myMsgIds.length === 0) {
+      notify('Info', 'You can only delete your own messages', 'info');
+      // Optional: Offer "Delete for Me" instead? 
+      // For now, just block unsend of others.
+      // Or if we want "Delete for Me" for ALL messages, we should use a different endpoint.
+      // But user request was "User B bisa menghapus pesan User A", implying Unsend was working on A's msg.
+      return;
+    }
+
+    const othersCount = messageList.length - myMsgIds.length;
+    const confirmMsg = othersCount > 0
+      ? `Delete your ${myMsgIds.length} message(s)? (${othersCount} others ignored)`
+      : `Delete ${myMsgIds.length} message(s)?`;
+
     Notiflix.Confirm.show(
       'Delete Messages',
-      `Delete ${messageList.length} selected message(s)?`,
+      confirmMsg,
       'Delete',
       'Cancel',
       async () => {
@@ -301,12 +322,13 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
           const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API}/chat/messages`, {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ messageIds: messageList, userId: myId })
+            body: JSON.stringify({ messageIds: myMsgIds, userId: myId })
           });
 
           if (res.ok) {
-            socketRef.current?.emit("deleteMessages", { roomId, messageIds: messageList });
-            setMessages((prev) => prev.filter((msg) => !messageList.includes(msg.id)));
+            socketRef.current?.emit("deleteMessages", { roomId, messageIds: myMsgIds });
+            // Remove checks only for valid ones
+            setMessages((prev) => prev.filter((msg) => !myMsgIds.includes(msg.id)));
             exitSelectionMode();
             notify('Success', 'Messages deleted', 'success');
           }
@@ -422,8 +444,8 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
   }
 
   const containerClass = customClass
-    ? `bg-fdvp-card/90 backdrop-blur-xl border border-fdvp-text/10 rounded-3xl shadow-2xl flex flex-col z-[6000] font-sans overflow-hidden ${customClass}`
-    : "fixed bottom-5 right-5 w-80 md:w-96 h-[600px] bg-fdvp-card/90 backdrop-blur-xl border border-fdvp-text/10 rounded-3xl shadow-2xl flex flex-col z-[6000] font-sans overflow-hidden animate-in slide-in-from-bottom-5";
+    ? `bg-fdvp-card/90 backdrop-blur-xl border border-fdvp-text/10 rounded-3xl shadow-2xl flex flex-col z-40 font-sans overflow-hidden ${customClass}`
+    : "fixed bottom-5 right-5 w-80 md:w-96 h-[600px] bg-fdvp-card/90 backdrop-blur-xl border border-fdvp-text/10 rounded-3xl shadow-2xl flex flex-col z-40 font-sans overflow-hidden animate-in slide-in-from-bottom-5";
 
   // Helpers for Selection Header
   const selectedMsgList = messages.filter(m => selectedMessages.has(m.id));
@@ -565,12 +587,12 @@ export default function ChatWindow({ myId, myName, myPhoto, otherUser, onClose, 
                       </button>
                     )}
 
-                    <div className={`relative max-w-[80%] rounded-2xl px-4 py-2.5 text-sm shadow-sm backdrop-blur-md ${isMe
+                    <div className={`relative max-w-[90%] md:max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-sm backdrop-blur-md ${isMe
                       ? 'bg-fdvp-primary text-fdvp-bg rounded-br-sm'
                       : 'bg-fdvp-text/10 text-fdvp-text-light rounded-bl-sm border border-fdvp-text/5'
                       }`}>
 
-                      <span className="block leading-relaxed whitespace-pre-wrap" style={{ wordWrap: 'break-word', overflowWrap: 'anywhere' }}>
+                      <span className="block leading-relaxed whitespace-pre-wrap break-words min-w-[20px]">
                         {msg.text}
                       </span>
 
