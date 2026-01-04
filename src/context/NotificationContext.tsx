@@ -38,17 +38,35 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         }
     }, []);
 
-    // Save Mute Setting
+    const mutedRef = useRef(muted);
+
+    // Sync muted state to ref
     useEffect(() => {
+        mutedRef.current = muted;
         localStorage.setItem("notification_muted", String(muted));
     }, [muted]);
 
+    // Initialize Audio & Request Notification Permission
+    useEffect(() => {
+        // Init Audio
+        audioRef.current = new Audio("/sounds/notification.mp3");
+
+        // Request Permission untuk System Notification (Desktop/Mobile)
+        if ("Notification" in window) {
+            if (Notification.permission === "default") {
+                Notification.requestPermission().then(permission => {
+                    console.log("Notification permission request result:", permission);
+                });
+            }
+        }
+    }, []);
+
     const notify = (title: string, message: string, type: 'success' | 'error' | 'info' | 'chat' = 'info', image?: string) => {
-        if (muted) return; // Silent mode
+        if (mutedRef.current) return; // Silent mode using Ref
 
         // 1. Play Sound (Optional)
         if (audioRef.current && (type === 'chat' || type === 'success')) {
-            audioRef.current.play().catch(e => console.log("Audio play failed"));
+            audioRef.current.play().catch(e => console.log("Audio play failed:", e));
         }
 
         // 2. IziToast Configuration
@@ -57,36 +75,26 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
             message: message,
             position: 'topRight' as const,
             theme: 'dark' as const,
-            backgroundColor: '#161616', // Darker background
+            backgroundColor: '#161616',
             titleColor: '#ffffff',
             messageColor: '#cccccc',
-            progressBarColor: '#14FFEC', // Default accent
-            layout: 2, // Layout with icon/image on left
+            progressBarColor: '#14FFEC',
+            layout: 2,
             maxWidth: 400,
             overlay: false,
             timeout: 5000,
             transitionIn: 'bounceInLeft' as const,
             transitionOut: 'fadeOutRight' as const,
             displayMode: 2 as const,
-            zindex: 999999, // Ensure above Navbar (z-5000)
+            zindex: 999999,
         };
 
         switch (type) {
             case 'success':
-                iziToast.success({
-                    ...commonOptions,
-                    titleColor: '#4ade80', // Green
-                    iconColor: '#4ade80',
-                    progressBarColor: '#4ade80',
-                });
+                iziToast.success({ ...commonOptions, titleColor: '#4ade80', iconColor: '#4ade80', progressBarColor: '#4ade80' });
                 break;
             case 'error':
-                iziToast.error({
-                    ...commonOptions,
-                    titleColor: '#f87171', // Red
-                    iconColor: '#f87171',
-                    progressBarColor: '#f87171',
-                });
+                iziToast.error({ ...commonOptions, titleColor: '#f87171', iconColor: '#f87171', progressBarColor: '#f87171' });
                 break;
             case 'chat':
                 iziToast.show({
@@ -95,17 +103,11 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                     imageWidth: 40,
                     titleColor: '#14FFEC',
                     progressBarColor: '#14FFEC',
-                    icon: !image ? 'ico-message' : undefined, // Fallback icon if no image
-                    // Custom template could be used but built-in image support is fine
+                    icon: !image ? 'ico-message' : undefined,
                 });
                 break;
-            default: // info
-                iziToast.info({
-                    ...commonOptions,
-                    titleColor: '#60a5fa', // Blue
-                    iconColor: '#60a5fa',
-                    progressBarColor: '#60a5fa',
-                });
+            default:
+                iziToast.info({ ...commonOptions, titleColor: '#60a5fa', iconColor: '#60a5fa', progressBarColor: '#60a5fa' });
                 break;
         }
     };
@@ -120,78 +122,96 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         });
         socketRef.current = socket;
 
-        // Helper untuk membuat icon bulat (Canvas Processing) for Desktop Notifications
+        // Helper untuk membuat icon bulat
         const getCircularIcon = (url: string): Promise<string> => {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.crossOrigin = "Anonymous";
                 img.src = url;
                 img.onload = () => {
-                    const canvas = document.createElement("canvas");
-                    const w = 192;
-                    const h = 192;
-                    canvas.width = w;
-                    canvas.height = h;
-                    const ctx = canvas.getContext("2d");
-                    if (!ctx) return resolve(url);
+                    try {
+                        const canvas = document.createElement("canvas");
+                        const w = 192;
+                        const h = 192;
+                        canvas.width = w;
+                        canvas.height = h;
+                        const ctx = canvas.getContext("2d");
+                        if (!ctx) return resolve(url);
 
-                    ctx.beginPath();
-                    ctx.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2, true);
-                    ctx.closePath();
-                    ctx.clip();
-                    ctx.drawImage(img, 0, 0, w, h);
-                    resolve(canvas.toDataURL());
+                        ctx.beginPath();
+                        ctx.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2, true);
+                        ctx.closePath();
+                        ctx.clip();
+                        ctx.drawImage(img, 0, 0, w, h);
+                        resolve(canvas.toDataURL());
+                    } catch (e) {
+                        resolve(url);
+                    }
                 };
-                img.onerror = () => {
-                    resolve("/favicon.ico");
-                };
+                img.onerror = () => resolve("/favicon.ico");
             });
         };
 
         // LISTENER NOTIFIKASI
         socket.on("receiveNotification", async (data: { senderName: string, text: string, senderPhoto?: string, roomId: string }) => {
-            console.log("🔔 CLIENT RECEIVED NOTIF:", data); // Debug Log
-            if (muted) return;
+            console.log("🔔 CLIENT RECEIVED NOTIF:", data);
 
-            // 1. Tampilkan In-App Toast via generic notify
-            notify(data.senderName, data.text, 'chat', data.senderPhoto);
+            // Cek Ref, bukan state 'muted' yang stale
+            if (mutedRef.current) return;
 
-            // 2. Tampilkan System / Desktop Notification (Khusus Chat)
+            // 1. Tampilkan In-App Toast
+            // Kita panggil notify manual di sini atau pakai logic iziToast langsung
+            // Karena `notify` function di luar useEffect ini bisa stale jika dependensi tidak diupdate.
+            // Agar aman, kita copy logic play sound & iziToast di sini atau fix notify dependency.
+            // Cara termudah: panggil notify, tapi pastikan notify tidak bergantung state yang sering berubah (selain muted yang sudah di-ref).
+
+            // Play sound manual here to be safe
+            if (audioRef.current) audioRef.current.play().catch(e => console.log("Audio play failed"));
+
+            iziToast.show({
+                title: data.senderName,
+                message: data.text,
+                position: 'topRight',
+                theme: 'dark',
+                backgroundColor: '#161616',
+                titleColor: '#14FFEC',
+                messageColor: '#cccccc',
+                progressBarColor: '#14FFEC',
+                image: data.senderPhoto,
+                imageWidth: 40,
+                layout: 2,
+                timeout: 5000,
+            });
+
+            // 2. Tampilkan System / Desktop Notification
             if ("Notification" in window && Notification.permission === "granted") {
-                let iconUrl = "/favicon.ico";
-                if (data.senderPhoto) {
-                    try {
-                        iconUrl = await getCircularIcon(data.senderPhoto);
-                    } catch (e) {
-                        iconUrl = data.senderPhoto;
-                    }
-                }
+                // Jangan menunggu icon create, langsung tampilkan notif agar cepat
+                // Icon processing bisa lambat
+                let iconUrl = data.senderPhoto || "/favicon.ico";
 
-                new Notification(`New message from ${data.senderName}`, {
-                    body: data.text,
-                    icon: iconUrl,
-                    tag: data.roomId
-                });
+                try {
+                    // Try to send notification
+                    const notif = new Notification(`New message from ${data.senderName}`, {
+                        body: data.text,
+                        icon: iconUrl,
+                        tag: data.roomId,
+                        silent: false // Biarkan sistem bunyi juga jika user mau
+                    });
+
+                    notif.onclick = () => {
+                        window.focus();
+                        // Redirect ke chat room jika perlu: window.location.href = `/chat?room=${data.roomId}`
+                    };
+                } catch (e) {
+                    console.error("System notification failed:", e);
+                }
             }
         });
 
         return () => {
             socket.disconnect();
         };
-    }, [user, muted]); // Added muted to dependency if we want to react strictly, but notify checks ref or current state. 
-    // Wait, 'muted' in useEffect dependency might cause reconnects if not careful. 
-    // socket does NOT need to reconnect just because mute changed. 
-    // The 'muted' state inside the event listener closure will be stale if I don't use a ref or include it.
-    // Reconnecting socket on mute toggle is overkill but ensures 'muted' variable is fresh in the closure.
-    // Better approach: Use a ref for 'muted' inside the effect if avoiding reconnects, OR just let it reconnect (cheap enough).
-    // Given the complexity, letting it reconnect is safest for consistency, OR relying on `notify` (which is outside) is tricky because notify is defined outside.
-    // Actually `notify` captures `muted` from the render scope.
-    // If I call `notify` inside `socket.on`, it uses the `notify` from when the effect ran.
-    // So yes, I need to include `muted` in the dependency array or `notify` in it.
-    // Since `notify` depends on `muted`, it changes on every render? No, `notify` is function declaration inside component... it is recreated every render.
-    // So `useEffect` will re-run every render if I add `notify`.
-    // I should wrap `notify` in `useCallback` or use a Ref for `muted`.
-    // For simplicity given the time: I will add `muted` to dependency. Reconnecting socket is acceptable for a settings toggle.
+    }, [user]); // Hapus 'muted' dari dependency array agar socket tidak reconnect saat mute ditoggle
 
     return (
         <NotificationContext.Provider value={{ notify, muted, setMuted }}>
